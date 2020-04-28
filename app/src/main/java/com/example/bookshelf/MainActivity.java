@@ -3,9 +3,17 @@ package com.example.bookshelf;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentManager;
 
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.volley.RequestQueue;
@@ -23,7 +31,7 @@ import java.util.HashMap;
 
 import edu.temple.audiobookplayer.AudiobookService;
 
-public class MainActivity extends AppCompatActivity implements BookListFragment.BookSelectedInterface {
+public class MainActivity extends AppCompatActivity implements BookListFragment.BookSelectedInterface, BookDetailsFragment.bookdetailsinterface {
 
     private static final String BOOKS_KEY = "books";
     private static final String SELECTED_BOOK_KEY = "selectedBook";
@@ -37,6 +45,11 @@ public class MainActivity extends AppCompatActivity implements BookListFragment.
     ArrayList<Book> books;
     RequestQueue requestQueue;
     Book selectedBook;
+    Button pausebutton;
+    Button stopbutton;
+    SeekBar seekBar;
+    ProgressBar progressBar;
+    TextView progresstext;
 
     EditText searchEditText;
 
@@ -52,6 +65,11 @@ public class MainActivity extends AppCompatActivity implements BookListFragment.
 
         searchEditText = findViewById(R.id.searchEditText);
 
+        pausebutton = findViewById(R.id.btnPause);
+        stopbutton = findViewById(R.id.btnStop);
+        seekBar = findViewById(R.id.sbrSeekBar);
+        progressBar = findViewById(R.id.prgsProgressBar);
+        progresstext = findViewById(R.id.txtProgress);
         /*
         Perform a search
          */
@@ -75,6 +93,8 @@ public class MainActivity extends AppCompatActivity implements BookListFragment.
 
         twoPane = findViewById(R.id.container2) != null;
         fm = getSupportFragmentManager();
+
+        bindService(new Intent(this, AudiobookService.class), serviceConnection, BIND_AUTO_CREATE);
 
         requestQueue = Volley.newRequestQueue(this);
 
@@ -116,6 +136,8 @@ public class MainActivity extends AppCompatActivity implements BookListFragment.
                         .commit();
             }
         }
+
+
     }
 
     /*
@@ -186,6 +208,37 @@ public class MainActivity extends AppCompatActivity implements BookListFragment.
                     .addToBackStack(null)
                     .commit();
         }
+        stopbutton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mediaControlBinder.stop();
+            }
+        });
+        pausebutton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mediaControlBinder.pause();
+            }
+        });
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                progressBar.setProgress(progress);
+                mediaControlBinder.seekTo(progress);
+                progresstext.setText(progress + "%");
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+
     }
 
     @Override
@@ -196,4 +249,31 @@ public class MainActivity extends AppCompatActivity implements BookListFragment.
         outState.putParcelableArrayList(BOOKS_KEY, books);
         outState.putParcelable(SELECTED_BOOK_KEY, selectedBook);
     }
+
+    @Override
+    public void playButton(int id) {
+        mediaControlBinder.play(id);
+    }
+
+    ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            mediaControlBinder = (AudiobookService.MediaControlBinder) service;
+
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mediaControlBinder = null;
+        }
+    };
+
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unbindService(serviceConnection);
+    }
+
+
 }
